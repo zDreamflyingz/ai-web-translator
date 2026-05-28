@@ -212,8 +212,9 @@ function applyCache() {
   updateBtns();
 }
 
-// ========== Selection Translation ==========
+// ========== Selection Translation (via context menu) ==========
 let popup = null;
+
 function ensurePopup() {
   if (popup) return;
   popup = document.createElement('div');
@@ -222,26 +223,37 @@ function ensurePopup() {
   document.body.appendChild(popup);
 }
 
-document.addEventListener('mouseup', async () => {
-  const sel = window.getSelection();
-  const text = sel ? sel.toString().trim() : '';
-  if (!text || text.length < 2) { if (popup) popup.style.display = 'none'; return; }
-  if (/^[\u4e00-\u9fff\s，。！？、；：""''（）《》…—\-\d]+$/.test(text)) { if (popup) popup.style.display = 'none'; return; }
+function showPopup(x, y, html) {
   ensurePopup();
-  const rect = sel.getRangeAt(0).getBoundingClientRect();
   popup.style.display = 'block';
-  popup.style.left = Math.min(rect.left, window.innerWidth - 440) + 'px';
-  popup.style.top = (rect.bottom + 10 > window.innerHeight ? rect.top - 70 : rect.bottom + 10) + 'px';
-  popup.textContent = '\u23F3'; // loading
-  try {
-    const r = await callTranslateAPI([text]);
-    popup.innerHTML = '<div style="color:#666;margin-bottom:6px;font-size:12px">' + esc(text) + '</div><div style="color:#1a73e8;font-weight:500">' + esc(r[0] || 'Failed') + '</div>';
-  } catch (e) {
-    popup.innerHTML = '<span style="color:red">Translation failed</span>';
+  popup.style.left = Math.min(x, window.innerWidth - 440) + 'px';
+  popup.style.top = (y + 10 > window.innerHeight ? y - 70 : y + 10) + 'px';
+  popup.innerHTML = html;
+}
+
+// Listen for translation results from background.js (context menu)
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.action === 'showTranslation') {
+    const sel = window.getSelection();
+    let x = 100, y = 100;
+    if (sel && sel.rangeCount > 0) {
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      x = rect.left; y = rect.bottom;
+    }
+    if (msg.translated) {
+      showPopup(x, y,
+        '<div style="color:#666;margin-bottom:6px;font-size:12px">' + esc(msg.original) + '</div>' +
+        '<div style="color:#1a73e8;font-weight:500">' + esc(msg.translated) + '</div>'
+      );
+    } else {
+      showPopup(x, y, '<span style="color:red">' + esc(msg.error || 'Failed') + '</span>');
+    }
   }
 });
 
-document.addEventListener('mousedown', (e) => { if (popup && !popup.contains(e.target)) popup.style.display = 'none'; });
+document.addEventListener('mousedown', (e) => {
+  if (popup && !popup.contains(e.target)) popup.style.display = 'none';
+});
 
 // ========== Utilities ==========
 async function callWithRetry(fn, n) {

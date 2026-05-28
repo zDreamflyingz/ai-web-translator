@@ -3,7 +3,7 @@
   "name": "AI Web Translator",
   "version": "1.0.0",
   "description": "AI-powered webpage translation with DeepSeek/OpenRouter/OpenAI. Select text or translate entire pages.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "contextMenus"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"

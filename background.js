@@ -1,6 +1,40 @@
 // AI Web Translator - Background Service Worker
-// Handles API calls to avoid CORS issues
 
+// ========== Context Menu ==========
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'translate-selection',
+    title: 'Translate selection to Chinese',
+    contexts: ['selection']
+  });
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'translate-selection' && info.selectionText) {
+    const text = info.selectionText.trim();
+    if (text.length < 2) return;
+    // Skip if already Chinese
+    if (/^[\u4e00-\u9fff\s，。！？、；：""''（）《》…—\-\d]+$/.test(text)) return;
+
+    try {
+      const translated = await handleTranslate([text]);
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'showTranslation',
+        original: text,
+        translated: translated[0]
+      });
+    } catch (e) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'showTranslation',
+        original: text,
+        translated: null,
+        error: ERR_MSGS[e.message] || 'Translation failed'
+      });
+    }
+  }
+});
+
+// ========== Message Handler (from content.js for page translation) ==========
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'translate') {
     handleTranslate(request.texts)
@@ -10,6 +44,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// ========== Translate API ==========
 async function handleTranslate(texts) {
   const stored = await chrome.storage.local.get(['platform', 'api_url', 'model', 'api_key']);
   const url = stored.api_url;
@@ -20,17 +55,11 @@ async function handleTranslate(texts) {
   if (!key) throw new Error('API_KEY_MISSING');
   if (!url) throw new Error('API_URL_MISSING');
 
-  // Basic URL validation
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
-  } catch { throw new Error('API_URL_INVALID'); }
-
   const prompt = [
     'Translate the following text into Chinese.',
-    'Auto-detect the source language (English, Japanese, Korean, French, German, Spanish, Russian, etc.).',
+    'Auto-detect the source language (English, Japanese, Korean, French, German, etc.).',
     'Return only the Chinese translation, one per segment, separated by "---".',
-    'Do NOT add any explanations, pinyin, or original text:',
+    'Do NOT add explanations or original text:',
     '',
     texts.join('\n===\n')
   ].join('\n');
@@ -39,42 +68,27 @@ async function handleTranslate(texts) {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${key}`
   };
-
   if (platform === 'openrouter') {
-    // Use extension ID as referer; falls back to a generic value
-    const extId = chrome.runtime.id || 'ai-web-translator';
-    headers['HTTP-Referer'] = `https://${extId}.extension`;
+    headers['HTTP-Referer'] = `https://${chrome.runtime.id || 'ai-web-translator'}.extension`;
     headers['X-Title'] = 'AI Web Translator';
   }
 
-  const body = {
-    model,
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.1,
-    max_tokens: 4000
-  };
-
   let response;
   try {
-    response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 4000 })
+    });
   } catch (e) {
     throw new Error('NETWORK_ERROR');
   }
 
   if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    let errCode = `${response.status}`;
-    try {
-      const errJson = JSON.parse(errText);
-      const errMsg = errJson.error?.message || errJson.message || '';
-      if (response.status === 401) throw new Error('AUTH_FAILED');
-      if (response.status === 402) throw new Error('INSUFFICIENT_FUNDS');
-      if (response.status === 429) throw new Error('RATE_LIMIT');
-      if (response.status === 403) throw new Error('ACCESS_DENIED');
-      throw new Error('API_ERROR');
-    } catch (e) {
-      if (e.message !== 'API_ERROR') throw e;
-    }
+    if (response.status === 401) throw new Error('AUTH_FAILED');
+    if (response.status === 402) throw new Error('INSUFFICIENT_FUNDS');
+    if (response.status === 429) throw new Error('RATE_LIMIT');
+    if (response.status === 403) throw new Error('ACCESS_DENIED');
     throw new Error('API_ERROR');
   }
 
@@ -90,3 +104,15 @@ async function handleTranslate(texts) {
   }
   return parts;
 }
+
+const ERR_MSGS = {
+  'API_KEY_MISSING': 'API key not set',
+  'API_URL_MISSING': 'API URL not set',
+  'NETWORK_ERROR': 'Network error',
+  'AUTH_FAILED': 'Invalid API key',
+  'INSUFFICIENT_FUNDS': 'Insufficient funds',
+  'ACCESS_DENIED': 'Access denied',
+  'RATE_LIMIT': 'Rate limited',
+  'API_ERROR': 'API error',
+  'EMPTY_RESPONSE': 'Empty response'
+};
