@@ -74,3 +74,72 @@ AI-powered browser extension for translating web pages. Supports DeepSeek, OpenR
 ## License
 
 MIT
+
+---
+
+# AI Web Translator（中文说明）
+
+基于 AI 的浏览器网页翻译扩展，支持 DeepSeek、OpenRouter、OpenAI 及任意兼容 OpenAI 格式的 API。
+
+## 功能介绍
+
+- **右键划词翻译** — 选中任意外文 → 右键 → 翻译为中文
+- **整页翻译** — 一键将整个网页翻译成中文
+- **暂停/继续** — 随时控制翻译进度
+- **还原原文** — 一键恢复翻译前的原文
+- **翻译缓存** — 还原后可秒级恢复翻译，不重复调用 API
+- **多平台支持** — DeepSeek / OpenRouter / OpenAI / 自定义端点
+- **多语言检测** — 自动识别英语、日语、韩语、法语、德语等语言
+- **拖拽按钮** — 悬浮按钮可自由拖拽到页面任意位置
+
+## 支持的平台
+
+| 平台 | 默认模型 | 费用 |
+|------|----------|------|
+| DeepSeek | V4 Pro | 付费 |
+| OpenRouter | V4 Flash（免费） | 免费/付费 |
+| OpenAI | GPT-4o Mini | 付费 |
+| 自定义 | 任意兼容 OpenAI 格式的 API | 取决于服务商 |
+
+## 安装方法
+
+1. 下载或克隆本仓库
+2. 打开 Chrome 浏览器，地址栏输入 `chrome://extensions/`
+3. 开启右上角**开发者模式**
+4. 点击**加载已解压的扩展程序**，选择本文件夹
+5. 点击扩展图标，选择平台，输入 API Key，保存即可
+
+## 隐私说明
+
+- 你的 API Key 仅存储在**浏览器本地**（`chrome.storage.local`）
+- 翻译文本仅发送给你所选的 AI 服务商进行处理
+- **本扩展不会收集、存储或传输任何其他数据**
+- 数据处理方式请参阅对应 AI 服务商的隐私政策
+
+## 权限说明
+
+| 权限 | 用途 |
+|------|------|
+| `storage` | 在浏览器本地保存你的 API Key 和设置 |
+| `contextMenus` | 在右键菜单中添加"翻译选中内容"选项 |
+| `<all_urls>` | 在所有网页上注入翻译按钮和划词功能 |
+
+## 免责声明
+
+- **API Key 安全**：API Key 存储在浏览器本地，请妥善保管。建议使用有额度限制的专用 Key，并定期查看账单。
+- **翻译质量**：翻译由第三方 AI 模型生成，可能有不准确之处。重要文件请勿完全依赖机器翻译。
+- **第三方服务**：翻译文本会发送给你选择的 AI 服务商，请参阅其隐私政策。
+- **无担保**：本软件按"原样"提供，不提供任何形式的担保。详见 [LICENSE](LICENSE)。
+
+## 文件结构
+
+```
+├── manifest.json      # 扩展配置（Manifest V3）
+├── background.js      # Service worker — 处理 API 调用和右键菜单
+├── content.js         # 内容脚本 — 页面翻译按钮和逻辑
+├── popup.html/js      # 设置弹窗
+├── style.css          # 样式
+├── icons/             # 图标
+├── LICENSE            # MIT 许可证
+└── README.md          # 本文件
+```
