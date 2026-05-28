@@ -1,0 +1,69 @@
+# AI Web Translator
+
+AI-powered browser extension for translating web pages. Supports DeepSeek, OpenRouter, OpenAI, and any OpenAI-compatible API.
+
+## Features
+
+- **Selection translation** — select any text to see an instant AI translation
+- **Full page translation** — translate entire web pages with one click
+- **Pause / Resume** — control translation progress at any time
+- **Restore original** — revert translated pages back to the original text
+- **Translation cache** — restored pages can be re-translated instantly without API calls
+- **Multi-provider** — DeepSeek / OpenRouter / OpenAI / custom endpoints
+- **Multi-language** — auto-detects English, Japanese, Korean, French, German, and more
+- **Drag to reposition** — move the floating buttons anywhere on the page
+
+## Supported Providers
+
+| Provider | Default Model | Cost |
+|----------|--------------|------|
+| DeepSeek | V4 Pro | Paid |
+| OpenRouter | V4 Flash (free) | Free/Paid |
+| OpenAI | GPT-4o Mini | Paid |
+| Custom | Any OpenAI-compatible API | Depends |
+
+## Installation
+
+1. Download or clone this repository
+2. Open Chrome and go to `chrome://extensions/`
+3. Enable **Developer mode** (toggle in the top right)
+4. Click **Load unpacked** and select the extension folder
+5. Click the extension icon, choose a provider, enter your API key, and save
+
+## Privacy
+
+- Your API key is stored **locally** in your browser (`chrome.storage.local`)
+- Translated text is sent to your chosen AI provider for processing
+- **This extension does NOT collect, store, or transmit any data** other than what you explicitly send to your AI provider
+- See your AI provider's privacy policy for how they handle your data
+
+## Permissions Justification
+
+| Permission | Why |
+|-----------|-----|
+| `storage` | Save your API key and settings locally |
+| `<all_urls>` | Inject translation buttons and selection handlers on all pages |
+
+## Development
+
+```bash
+# All files are plain HTML/CSS/JS — no build step needed.
+# Edit files directly and reload the extension in chrome://extensions/.
+```
+
+### File Structure
+
+```
+├── manifest.json      # Extension manifest (Manifest V3)
+├── background.js      # Service worker — proxies API calls
+├── content.js         # Content script — UI buttons & translation logic
+├── popup.html/js      # Settings popup
+├── style.css          # Button & popup styles
+├── icons/             # Extension icons
+├── LICENSE            # MIT License
+└── README.md          # This file
+```
+
+## License
+
+MIT

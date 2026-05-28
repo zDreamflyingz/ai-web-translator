@@ -1,0 +1,14 @@
+/* 翻译按钮悬停放大 */
+#claw-btns > div:hover {
+  filter: brightness(1.1);
+}
+
+/* 划词弹窗动画 */
+#claw-selection-popup {
+  animation: clawFadeIn 0.15s ease-out;
+}
+
+@keyframes clawFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

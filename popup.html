@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing:border-box; }
+  body { width:300px; padding:16px; font-family:sans-serif; background:#f8f9fa; margin:0; font-size:13px; }
+  h3 { margin:0 0 4px; color:#1a73e8; font-size:16px; }
+  .sub { font-size:10px; color:#888; margin-bottom:12px; }
+  label { font-size:11px; color:#666; display:block; margin:8px 0 3px; }
+  select, input { width:100%; padding:7px 8px; border:1px solid #ddd; border-radius:6px; font-size:12px; margin-bottom:4px; background:#fff; }
+  input:focus, select:focus { outline:none; border-color:#1a73e8; }
+  button { width:100%; padding:10px; background:#1a73e8; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; margin-top:10px; }
+  button:hover { background:#1557b0; }
+  #status { font-size:11px; margin-top:8px; text-align:center; min-height:16px; }
+  .success { color:#0a8043; }
+  .error { color:#d93025; }
+  hr { border:none; border-top:1px solid #e0e0e0; margin:12px 0; }
+  .hint { font-size:9px; color:#999; margin-top:8px; text-align:center; line-height:1.6; }
+  #modelInput { display:none; }
+  .privacy { font-size:8px; color:#bbb; text-align:center; margin-top:4px; }
+  .privacy a { color:#bbb; }
+</style>
+</head>
+<body>
+  <h3>AI Web Translator</h3>
+  <div class="sub">Translate any webpage with AI</div>
+
+  <label>Provider</label>
+  <select id="platform">
+    <option value="deepseek">DeepSeek</option>
+    <option value="openrouter">OpenRouter</option>
+    <option value="openai">OpenAI</option>
+    <option value="custom">Custom (OpenAI-compatible)</option>
+  </select>
+
+  <div id="apiUrlRow" style="display:none">
+    <label>API Endpoint</label>
+    <input id="apiUrl" placeholder="https://api.openai.com/v1/chat/completions" />
+  </div>
+
+  <label>Model</label>
+  <select id="modelSelect"></select>
+  <input id="modelInput" placeholder="model name" />
+
+  <label>API Key</label>
+  <input type="password" id="apiKey" placeholder="sk-..." />
+
+  <button id="saveBtn">Save Settings</button>
+  <button id="clearBtn" style="background:#888;margin-top:4px">Clear</button>
+
+  <div id="status"></div>
+
+  <hr>
+  <div class="hint">
+    Your API key is stored locally in your browser.<br>
+    Text is sent to your chosen AI provider for translation.<br>
+    No data is collected by this extension.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
