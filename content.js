@@ -106,6 +106,10 @@ async function handlePause() {
 }
 
 // ========== Translate ==========
+const CACHE_KEY = 'ait_page_cache';
+const CACHE_MAX_AGE = 7 * 86400000; // 7 days
+let currentUrl = location.href.replace(/#.*$/, ''); // cache key
+
 async function startNewTranslation() {
   const nodes = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -126,11 +130,89 @@ async function startNewTranslation() {
     setTimeout(updateBtns, 2000);
     return;
   }
+
+  // Check persistent cache first
+  const stored = await chrome.storage.local.get(CACHE_KEY);
+  const urlCache = (stored[CACHE_KEY] || {})[currentUrl];
+  if (urlCache && urlCache.texts) {
+    // Try to match cached translations to current nodes
+    const cacheMap = {};
+    for (let i = 0; i < urlCache.texts.length; i++) {
+      cacheMap[urlCache.texts[i]] = urlCache.translations[i];
+    }
+    let hits = 0;
+    const items = [];
+    for (const node of nodes) {
+      const orig = node.textContent.trim();
+      const cached = cacheMap[orig];
+      items.push({ node, original: orig, translated: cached || null });
+      if (cached) hits++;
+    }
+    if (hits > nodes.length * 0.5) {
+      // Cache covers most content — apply immediately, translate the rest
+      translatedCache = { items, totalCount: nodes.length, doneCount: 0 };
+      for (const item of items) {
+        if (item.translated) {
+          item.node.textContent = item.translated;
+          translatedCache.doneCount++;
+        }
+      }
+      if (translatedCache.doneCount < nodes.length) {
+        // Translate remaining uncached texts
+        isTranslating = true;
+        abortController = new AbortController();
+        updateBtns();
+        await doTranslate(translatedCache.doneCount);
+        // Save updated cache
+        await savePageCache();
+      } else {
+        isTranslated = true;
+        updateBtns();
+      }
+      return;
+    }
+  }
+
+  // No cache or low hit rate — full translation
   translatedCache = {
-    items: nodes.map(n => ({ node: n, original: n.textContent, translated: null })),
+    items: nodes.map(n => ({ node: n, original: n.textContent.trim(), translated: null })),
     totalCount: nodes.length, doneCount: 0
   };
   await doTranslate(0);
+  // Save to persistent cache
+  await savePageCache();
+}
+
+async function savePageCache() {
+  if (!translatedCache) return;
+  const stored = await chrome.storage.local.get(CACHE_KEY);
+  const all = stored[CACHE_KEY] || {};
+  // Evict old entries
+  const now = Date.now();
+  for (const url of Object.keys(all)) {
+    if (now - all[url].ts > CACHE_MAX_AGE) delete all[url];
+  }
+  // Trim to 20 most recent URLs
+  const urls = Object.keys(all).sort((a, b) => all[b].ts - all[a].ts).slice(0, 19);
+  const trimmed = {};
+  for (const url of urls) trimmed[url] = all[url];
+  // Save current
+  trimmed[currentUrl] = {
+    texts: translatedCache.items.map(it => it.original),
+    translations: translatedCache.items.map(it => it.translated || it.original),
+    ts: Date.now()
+  };
+  // Estimate size and trim if needed (chrome.storage limit ~10MB)
+  const json = JSON.stringify(trimmed);
+  if (json.length > 5e6) {
+    // Too big — keep only last 5 URLs
+    const keys = Object.keys(trimmed).sort((a, b) => trimmed[b].ts - trimmed[a].ts).slice(0, 5);
+    const small = {};
+    for (const k of keys) small[k] = trimmed[k];
+    await chrome.storage.local.set({ [CACHE_KEY]: small });
+  } else {
+    await chrome.storage.local.set({ [CACHE_KEY]: trimmed });
+  }
 }
 
 async function doTranslate(startIndex) {
@@ -147,17 +229,32 @@ async function doTranslate(startIndex) {
     if (abortController.signal.aborted) break;
     const batch = items.slice(i, i + 8).filter(it => !it.translated);
     if (!batch.length) { translatedCache.doneCount = items.length; break; }
-    const texts = batch.map(it => it.original.trim()).filter(Boolean);
-    if (!texts.length) continue;
+
+    // Deduplicate: same text only translated once
+    const uniqueTexts = [];
+    const seenMap = {};
+    for (const item of batch) {
+      const t = item.original.trim();
+      if (!t) continue;
+      if (!seenMap[t]) { seenMap[t] = []; uniqueTexts.push(t); }
+      seenMap[t].push(item);
+    }
+    if (!uniqueTexts.length) continue;
 
     try {
-      const translated = await callWithRetry(() => callTranslateAPI(texts));
-      let tj = 0;
-      for (const item of batch) {
-        const orig = item.original.trim();
-        if (orig && tj < translated.length && translated[tj] && translated[tj] !== orig) {
-          item.translated = translated[tj]; item.node.textContent = translated[tj]; tj++;
-        } else if (orig) { item.translated = orig; }
+      const translated = await callWithRetry(() => callTranslateAPI(uniqueTexts));
+      for (let ti = 0; ti < uniqueTexts.length; ti++) {
+        const tr = translated[ti];
+        if (tr && tr !== uniqueTexts[ti]) {
+          for (const item of (seenMap[uniqueTexts[ti]] || [])) {
+            item.translated = tr;
+            item.node.textContent = tr;
+          }
+        } else {
+          for (const item of (seenMap[uniqueTexts[ti]] || [])) {
+            item.translated = item.original;
+          }
+        }
       }
       translatedCache.doneCount = Math.min(i + 8, items.length);
     } catch (e) {
