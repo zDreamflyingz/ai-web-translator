@@ -1,10 +1,23 @@
 // AI Web Translator - Background Service Worker
 
+// ========== Keyboard Shortcuts ==========
+chrome.commands.onCommand.addListener(async (command) => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) return;
+  if (command === 'translate-page') {
+    chrome.tabs.sendMessage(tab.id, { action: 'triggerTranslate' });
+  } else if (command === 'restore-page') {
+    chrome.tabs.sendMessage(tab.id, { action: 'triggerRestore' });
+  }
+});
+
 // ========== Context Menu ==========
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
+  const stored = await chrome.storage.local.get('targetLang');
+  const lang = stored.targetLang || 'Chinese';
   chrome.contextMenus.create({
     id: 'translate-selection',
-    title: 'Translate selection to Chinese',
+    title: `Translate selection to ${lang}`,
     contexts: ['selection']
   });
 });
@@ -46,7 +59,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // ========== Translate API ==========
 async function handleTranslate(texts) {
-  const stored = await chrome.storage.local.get(['platform', 'api_url', 'model', 'api_key']);
+  const stored = await chrome.storage.local.get(['platform', 'api_url', 'model', 'api_key', 'targetLang']);
+  const targetLang = stored.targetLang || 'Chinese';
   const url = stored.api_url;
   const key = stored.api_key;
   const model = stored.model || 'deepseek-chat';
@@ -56,9 +70,9 @@ async function handleTranslate(texts) {
   if (!url) throw new Error('API_URL_MISSING');
 
   const prompt = [
-    'Translate the following text into Chinese.',
-    'Auto-detect the source language (English, Japanese, Korean, French, German, etc.).',
-    'Return only the Chinese translation, one per segment, separated by "---".',
+    `Translate the following text into ${targetLang}.`,
+    'Auto-detect the source language.',
+    'Return only the translation, one per segment, separated by "---".',
     'Do NOT add explanations or original text:',
     '',
     texts.join('\n===\n')

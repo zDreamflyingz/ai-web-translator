@@ -88,17 +88,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  const stored = await chrome.storage.local.get(['platform', 'api_url', 'model', 'api_key']);
+  const stored = await chrome.storage.local.get(['platform', 'api_url', 'model', 'api_key', 'targetLang']);
   if (stored.platform) platformEl.value = stored.platform;
   platformEl.dispatchEvent(new Event('change'));
   if (stored.api_url && stored.platform === 'custom') apiUrlEl.value = stored.api_url;
   if (stored.api_key) apiKeyEl.value = stored.api_key;
+  if (stored.targetLang) document.getElementById('targetLang').value = stored.targetLang;
 
   saveBtn.addEventListener('click', async () => {
     const platform = platformEl.value;
     const key = apiKeyEl.value.trim();
     const model = modelSelect.style.display !== 'none' ? modelSelect.value.trim() : modelInput.value.trim();
     let url = apiUrlEl.value.trim();
+    const targetLang = document.getElementById('targetLang').value;
 
     if (!key) { setStatus('Please enter API Key', 'error'); return; }
     if (!model) { setStatus('Please select a model', 'error'); return; }
@@ -111,7 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       url = PLATFORMS[platform].url;
     }
 
-    await chrome.storage.local.set({ platform, api_url: url, model, api_key: key });
+    await chrome.storage.local.set({ platform, api_url: url, model, api_key: key, targetLang });
     setStatus('Saved! Reload page to apply', 'success');
   });
 

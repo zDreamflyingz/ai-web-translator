@@ -328,8 +328,9 @@ function showPopup(x, y, html) {
   popup.innerHTML = html;
 }
 
-// Listen for translation results from background.js (context menu)
+// Listen for messages from background.js
 chrome.runtime.onMessage.addListener((msg) => {
+  // Context menu translation result
   if (msg.action === 'showTranslation') {
     const sel = window.getSelection();
     let x = 100, y = 100;
@@ -346,6 +347,9 @@ chrome.runtime.onMessage.addListener((msg) => {
       showPopup(x, y, '<span style="color:red">' + esc(msg.error || 'Failed') + '</span>');
     }
   }
+  // Keyboard shortcuts
+  if (msg.action === 'triggerTranslate') handleTranslate();
+  if (msg.action === 'triggerRestore') restorePage();
 });
 
 document.addEventListener('mousedown', (e) => {
@@ -382,3 +386,30 @@ function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
 
 if (document.body) injectButtons();
 else document.addEventListener('DOMContentLoaded', injectButtons);
+
+// ========== Dark Mode ==========
+function applyDarkMode(isDark) {
+  const btnBg = isDark ? '#444' : '#1a73e8';
+  const popupBg = isDark ? '#333' : '#fff';
+  const popupColor = isDark ? '#ddd' : '#333';
+  const popupBorder = isDark ? '#555' : '#ddd';
+  for (const id of ['pause', 'translate']) {
+    const btn = getBtn(id);
+    if (btn && !btn.style.background.match(/#f5a623|#ea4335|#d93025/)) {
+      btn.style.background = btnBg;
+    }
+  }
+  if (popup) {
+    popup.style.background = popupBg;
+    popup.style.color = popupColor;
+    popup.style.borderColor = popupBorder;
+  }
+  if (translatedCache && !isTranslated) {
+    // Re-apply button states after dark mode switch
+    updateBtns();
+  }
+}
+
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+darkQuery.addEventListener('change', (e) => applyDarkMode(e.matches));
+applyDarkMode(darkQuery.matches);
